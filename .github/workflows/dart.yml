@@ -1,0 +1,45 @@
+name: Dart
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.13.2"
+          channel: "stable"
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "^1.21.0"
+
+      - name: compile mage
+        run: go mod download && go run magefiles/cmd/mage.go -compile ../mage
+
+      - name: display telemetry
+        run: flutter --disable-telemetry
+
+      - name: Install dependencies
+        run: ./mage PubGlobalUpgrade PubGet CreateI18nSynthetic BuildRunner CreateVersion CreateI18n
+
+      - name: Install dependencies
+        run: lic_ck check-licenses -c lic_ck.yaml -i
+
+      - name: Format generated files
+        run: dart format --line-length=120 lib/book/data/datasources/hive_store/value.g.dart lib/l10n/translations/translations*.dart lib/core/version.g.dart
+
+      - name: Verify formatting
+        run: dart format --line-length=120 --output=none --set-exit-if-changed .
+
+      - name: Analyze project source
+        run: dart analyze --fatal-infos
+
+      - name: Run tests
+        run: flutter test
